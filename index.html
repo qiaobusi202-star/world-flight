@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>寰宇飞行 World Flight — 真实地球飞行模拟</title>
+  <script type="module" crossorigin src="/world-flight/assets/index-3SddiSLb.js"></script>
+  <link rel="stylesheet" crossorigin href="/world-flight/assets/index-CiBEcuZV.css">
+</head>
+<body>
+  <div id="cesiumContainer"></div>
+
+  <!-- 加载中 -->
+  <div id="loading" class="overlay">
+    <div class="spinner"></div>
+    <p id="loading-text">正在连接真实地球（Google 照片级 3D Tiles）…</p>
+  </div>
+
+  <!-- 错误卡片 -->
+  <div id="error-card" class="overlay hidden">
+    <div class="card">
+      <h2>⚠️ 地球数据加载失败</h2>
+      <p id="error-reason"></p>
+      <div class="row">
+        <button id="btn-retry" class="btn primary">刷新重试</button>
+        <button id="btn-change-token" class="btn">更换 ion 令牌</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 起始界面 -->
+  <div id="start-screen" class="overlay hidden">
+    <div class="start-inner">
+      <h1>寰宇飞行 <span>WORLD FLIGHT</span></h1>
+      <p class="subtitle">真实地球 · Google 照片级 3D 城市 · <b id="airport-count"></b> 个真实机场任你起飞</p>
+
+      <div class="section">
+        <h3>载具</h3>
+        <div class="craft-row">
+          <button class="craft-card selected" data-craft="plane">✈️<b>飞机</b><small>高速巡航 · 环球飞行</small></button>
+          <button class="craft-card" data-craft="heli">🚁<b>直升机</b><small>悬停低飞 · 城市观光</small></button>
+          <button class="craft-card" data-craft="drone">🛸<b>无人机</b><small>极速机动 · 灵活穿梭</small></button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>出发时间</h3>
+        <div class="time-row">
+          <button class="time-btn" data-hour="6.5">🌅 清晨</button>
+          <button class="time-btn selected" data-hour="12">☀️ 正午</button>
+          <button class="time-btn" data-hour="18.4">🌇 黄昏</button>
+          <button class="time-btn" data-hour="0">🌙 夜晚</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>出发地 <small>点击卡片立即起飞</small></h3>
+        <input id="airport-search" autocomplete="off"
+               placeholder="🔍 搜索全球真实机场：名称 / 城市 / 三字码，如 PEK、Chengdu、Tokyo…" />
+        <div id="airport-results"></div>
+        <div id="preset-grid"></div>
+      </div>
+
+      <p class="footnote">
+        W/S 俯仰(直升机为前后) · A/D 转向 · Q/E 平稳转向 · 空格 上升 · Shift 加速/直升机疾行 · Ctrl 或 X 减速/下降 · R 自动稳定 · C 视角 · M 地图 · 双击地面设目标
+        <button id="btn-token-small">更换令牌</button>
+      </p>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <!-- 顶部罗盘 -->
+    <div id="compass">
+      <div id="hud-hdg">000°</div>
+      <div id="compass-window"><div id="compass-tape"></div><div id="compass-needle"></div></div>
+    </div>
+
+    <!-- 左：速度/油门 -->
+    <div id="panel-left" class="hud-block">
+      <div class="big"><span id="hud-speed">0</span><small>km/h</small></div>
+      <div id="throttle-bar"><div id="throttle-fill"></div></div>
+      <div class="dim">油门 Shift+ / Ctrl−</div>
+    </div>
+
+    <!-- 右：高度 -->
+    <div id="panel-right" class="hud-block">
+      <div class="big"><span id="hud-alt">0</span><small>m 海拔</small></div>
+      <div class="dim" id="hud-agl">离地 0 m</div>
+      <div class="dim" id="hud-vs">↑ 0.0 m/s</div>
+    </div>
+
+    <!-- 底部：目标导航 -->
+    <div id="hud-target" style="display:none">
+      <span id="target-arrow">➤</span>
+      <span id="target-name"></span>
+      <b id="target-dist"></b>
+      <button id="btn-clear-route" title="清除航线">✕</button>
+    </div>
+
+    <!-- 状态行 -->
+    <div id="status-line">
+      <span id="hud-coords">0, 0</span>
+      <span id="hud-clock"></span>
+      <span id="hud-cam">追尾视角</span>
+      <span id="hud-stab">自动稳定</span>
+      <span id="hud-ground" style="display:none">🛬 地面</span>
+    </div>
+
+    <!-- 工具栏 -->
+    <div id="toolbar">
+      <button id="btn-map">🗺️ 地图</button>
+      <button data-panel="game-search">🔍 搜索</button>
+      <button data-panel="game-time">🕐 时间</button>
+      <button data-panel="game-quality">🎨 画质</button>
+      <button id="btn-relocate">🌍 换地方</button>
+    </div>
+
+    <div id="key-hint">WASD 方向 · Q/E 平转 · 空格升 · Shift 加速 · Ctrl/X 减速 · R 稳定 · C 视角 · M 地图</div>
+  </div>
+
+  <!-- 全屏地图 -->
+  <div id="map-modal" class="hidden">
+    <div id="map-head">
+      <b>🗺️ 世界地图</b>
+      <span class="dim">点击地图任意位置：传送或设为目标</span>
+      <label><input type="checkbox" id="map-follow" checked /> 跟随飞机</label>
+      <button id="map-close">✕ 关闭 (M)</button>
+    </div>
+    <div id="map-container"></div>
+  </div>
+
+  <!-- 游戏内面板 -->
+  <div id="game-search" class="panel hidden">
+    <h4>搜索地点 <small>全球地名 / 地标 / 城市</small></h4>
+    <div class="row">
+      <input id="geo-input" autocomplete="off" placeholder="如：上海东方明珠、Paris、岳麓山…" />
+      <button id="geo-go" class="btn primary">搜索</button>
+    </div>
+    <div id="geo-results"></div>
+  </div>
+
+  <div id="game-time" class="panel hidden">
+    <h4>时间与昼夜</h4>
+    <div class="time-row">
+      <button class="game-time-btn" data-hour="6.5">🌅 清晨</button>
+      <button class="game-time-btn" data-hour="12">☀️ 正午</button>
+      <button class="game-time-btn" data-hour="18.4">🌇 黄昏</button>
+      <button class="game-time-btn" data-hour="0">🌙 夜晚</button>
+    </div>
+    <label class="row">时间流速
+      <select id="time-speed">
+        <option value="1">真实 1×</option>
+        <option value="60">快 60×</option>
+        <option value="600">很快 600×</option>
+        <option value="3600">极快 3600×</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="game-quality" class="panel hidden">
+    <h4>画质</h4>
+    <div class="time-row">
+      <button class="q-btn" data-q="low">低 · 流畅</button>
+      <button class="q-btn selected" data-q="medium">中 · 均衡</button>
+      <button class="q-btn" data-q="high">高 · 精细</button>
+    </div>
+    <p class="dim">低画质关闭云层与抗锯齿，适合网络或显卡吃紧时。</p>
+  </div>
+
+  <div id="toasts"></div>
+</body>
+</html>
