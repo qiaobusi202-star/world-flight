@@ -1,0 +1,18 @@
+{
+  "name": "world-flight",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "airports": "node scripts/build-airports.mjs"
+  },
+  "dependencies": {
+    "cesium": "^1.143.0",
+    "leaflet": "^1.9.4",
+    "vite": "^8.1.3",
+    "vite-plugin-static-copy": "^4.1.1"
+  }
+}
